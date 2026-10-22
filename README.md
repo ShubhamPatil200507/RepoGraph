@@ -1,5 +1,8 @@
 # RepoGraph
 
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 **See how your code works. Explore how everything connects.**
 
 RepoGraph is an interactive software architecture explorer that transforms GitHub repositories into source-backed, three-dimensional maps of modules, entities, dependencies, and execution paths. Developers can explore how a project works, inspect real code relationships, and use hosted Gemma to explain complex connections.
@@ -14,6 +17,23 @@ RepoGraph is an interactive software architecture explorer that transforms GitHu
 > The visualization makes the architecture understandable.**
 
 RepoGraph never uses language models as a substitute for syntax-aware code parsing or graph construction. Deterministic AST parsers identify verified symbols, routes, models, and dependencies. Graph algorithms determine execution paths and downstream change impact. Hosted Gemma is used exclusively to explain verified findings grounded strictly in repository evidence.
+
+---
+
+## Open-Weight AI Model Verification & Terms
+
+RepoGraph integrates Google DeepMind's **Gemma** open-weights model family for architectural reasoning and evidence-grounded code explanations:
+
+- **Configured Model Identifier:** `gemma-4-26b-a4b-it` (Gemma 4 26B instruction-tuned mixture-of-experts model).
+- **Inference Mode:** Hosted inference through Google's official Gen AI Python SDK (`google-genai`).
+- **Open-Weights Terms & License:** Gemma models are governed by the official [Gemma Open Model Terms of Use](https://ai.google.dev/gemma/terms).
+- **Official Model Cards & Documentation:**
+  - Google DeepMind Gemma Hub: [ai.google.dev/gemma](https://ai.google.dev/gemma)
+  - Google Gemma Terms of Use: [ai.google.dev/gemma/terms](https://ai.google.dev/gemma/terms)
+  - Hugging Face Model Card: [huggingface.co/google/gemma-2-27b-it](https://huggingface.co/google/gemma-2-27b-it)
+  - Kaggle Gemma Models: [kaggle.com/models/google/gemma-2](https://www.kaggle.com/models/google/gemma-2)
+- **Grounded Verification Boundary:** The Gemma copilot is fed *strictly deterministic AST evidence*: node identifiers, line numbers, and verified incoming/outgoing edges. It outputs findings separated into Confirmed Findings, Hypotheses, and Questions.
+- **Resilient Fallback:** Single-attempt retry (`attempts=1`) prevents hanging on Google preview endpoint quotas, activating instant automatic fallback to `gemini-flash-lite-latest`, or 100% offline non-AI fallback when unconfigured.
 
 ---
 
@@ -261,6 +281,9 @@ Exercises all seven capabilities sequentially against the live backend server.
 
 ---
 
-## License
+## License & Contributing
 
-Apache-2.0 License.
+- **Software License:** Released under the [Apache License 2.0](LICENSE).
+- **Contributing Guidelines:** See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, testing requirements, and Hacktoberfest participation.
+- **Security Policy:** See [SECURITY.md](SECURITY.md) for vulnerability disclosure procedures.
+- **AI Model Terms:** Hosted Gemma usage adheres to the [Gemma Open Model Terms of Use](https://ai.google.dev/gemma/terms).
