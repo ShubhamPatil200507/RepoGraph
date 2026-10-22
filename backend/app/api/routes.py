@@ -282,7 +282,8 @@ async def explain_node(analysis_id: str, req: ExplainRequest):
         incoming_edges=node_detail.incoming_edges,
         outgoing_edges=node_detail.outgoing_edges,
         question=req.question,
-        secondary_node=secondary_node
+        secondary_node=secondary_node,
+        known_nodes=record.graph.nodes if record.graph else None
     )
 
 
