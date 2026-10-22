@@ -1,16 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Layers,
   Database,
   GitBranch,
-  Sparkles,
-  ExternalLink,
   RotateCcw,
-  Search,
-  Code2,
+  Download,
+  Share2,
 } from 'lucide-react';
 import { useRepoStore } from '../../store/useRepoStore';
+import { api } from '../../api/client';
 
 export const Header: React.FC = () => {
   const {
@@ -20,9 +19,32 @@ export const Header: React.FC = () => {
     aiStatus,
     resetAll,
     graph,
+    activeAnalysisId,
   } = useRepoStore();
 
+  const [downloadingGraphify, setDownloadingGraphify] = useState(false);
   const repo = analysisStatus?.repository;
+
+  const handleExportGraphify = async () => {
+    if (!activeAnalysisId) return;
+    setDownloadingGraphify(true);
+    try {
+      const graphData = await api.getGraphifyExport(activeAnalysisId);
+      const blob = new Blob([JSON.stringify(graphData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `graphify-export-${repo?.repo || 'codebase'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export Graphify JSON:', err);
+    } finally {
+      setDownloadingGraphify(false);
+    }
+  };
 
   return (
     <header className="h-14 border-b border-space-800 bg-space-900/90 backdrop-blur px-4 flex items-center justify-between z-20 select-none">
@@ -104,8 +126,21 @@ export const Header: React.FC = () => {
         </div>
       )}
 
-      {/* Right: AI Model Status & Actions */}
-      <div className="flex items-center gap-3">
+      {/* Right: AI Model Status, Graphify Export & Actions */}
+      <div className="flex items-center gap-2.5">
+        {/* Graphify Export & Sponsor Badge */}
+        {graph && (
+          <button
+            onClick={handleExportGraphify}
+            disabled={downloadingGraphify}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-500/30 text-indigo-300 transition"
+            title="Export as Graphify Knowledge Graph (graphify-out/graph.json)"
+          >
+            <Download className="w-3 h-3 text-indigo-400" />
+            <span className="hidden lg:inline">{downloadingGraphify ? 'Exporting...' : 'Export Graphify'}</span>
+          </button>
+        )}
+
         {/* Gemma Status Pill */}
         <div
           className={`flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border ${

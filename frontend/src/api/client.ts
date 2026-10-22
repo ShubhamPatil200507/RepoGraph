@@ -59,6 +59,9 @@ export const api = {
   getGraph: (analysisId: string) =>
     request<NormalizedGraph>(`/analyses/${analysisId}/graph`),
 
+  getGraphifyExport: (analysisId: string) =>
+    request<Record<string, any>>(`/analyses/${analysisId}/graphify`),
+
   getFiles: (analysisId: string) =>
     request<FileItem>(`/analyses/${analysisId}/files`),
 

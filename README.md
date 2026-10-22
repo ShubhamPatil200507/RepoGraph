@@ -59,6 +59,11 @@ RepoGraph never uses language models as a substitute for syntax-aware code parsi
 - Reverse-dependency graph traversal computes direct and transitive dependents.
 - Highlights affected API routes, database models, and unit tests with risk mitigation advice from Gemma.
 
+### 8. ⚡ Graphify Knowledge Graph Integration (Sponsor Feature)
+- **Standard Knowledge Graph Export:** Seamlessly exports analyzed repository graphs in official **Graphify** (`Graphify-Labs/graphify`) format (`graphify-out/graph.json`).
+- **Community & Semantic Mapping:** Maps architectural layers and modules directly into Graphify community clusters, node types (`code`, `concept`, `document`, `rationale`), and audited relationship types (`calls`, `imports`, `uses`, `inherits`).
+- **One-Click Export:** Developers can click the **"Export Graphify"** button in the top navigation to obtain an interoperable knowledge graph for downstream AI coding agents or Graphify tools.
+
 ---
 
 ## Architecture & Technology Stack
@@ -211,6 +216,7 @@ All unit tests verify:
 | `POST` | `/api/repositories/analyze` | Initiates safe ingestion and analysis of a GitHub repository |
 | `GET` | `/api/analyses/{id}` | Honest stage-based analysis progress & error reporting |
 | `GET` | `/api/analyses/{id}/graph` | Normalized graph with deterministic 3D & 2D spatial layouts |
+| `GET` | `/api/analyses/{id}/graphify` | Exports standard Graphify-Labs knowledge graph (`graph.json`) |
 | `GET` | `/api/analyses/{id}/files` | Hierarchical file inventory tree with symbol counts |
 | `GET` | `/api/analyses/{id}/nodes/{node_id}` | Concrete node details, incoming/outgoing edges & verified source snippet |
 | `GET` | `/api/analyses/{id}/er-diagram` | Database entities, columns, primary/foreign keys & relations |

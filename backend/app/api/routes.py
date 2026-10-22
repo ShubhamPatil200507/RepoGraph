@@ -158,6 +158,16 @@ async def get_analysis_graph(analysis_id: str):
     return record.graph
 
 
+@router.get("/analyses/{analysis_id}/graphify")
+async def get_analysis_graphify_export(analysis_id: str):
+    """Exports the codebase knowledge graph in Graphify-Labs standard schema (graph.json)."""
+    from app.services.graphify_exporter import GraphifyExporter
+    record = store.get(analysis_id)
+    if not record.graph:
+        raise HTTPException(status_code=400, detail="Graph not ready yet.")
+    return GraphifyExporter.export_graphify_json(record.graph)
+
+
 @router.get("/analyses/{analysis_id}/files", response_model=FileItem)
 async def get_analysis_files(analysis_id: str):
     record = store.get(analysis_id)
