@@ -14,6 +14,7 @@ from app.models.graph import (
     GraphNode,
     GraphSummary,
     NormalizedGraph,
+    NodeType,
     Position2D,
     Position3D,
 )
@@ -226,10 +227,20 @@ class GraphBuilder:
         for node in self.nodes.values():
             layer_counts[node.layer] = layer_counts.get(node.layer, 0) + 1
 
+        routes_count = sum(
+            1 for n in self.nodes.values()
+            if n.type == NodeType.ROUTE.value or n.layer == ArchitecturalLayer.API.value
+        )
+        db_count = len(self.er_entities)
+        coupling = round(len(self.edges) / len(self.nodes), 2) if self.nodes else 0.0
+
         return GraphSummary(
             total_files=len(self.files_map),
             total_nodes=len(self.nodes),
             total_edges=len(self.edges),
+            entry_points_count=routes_count,
+            database_entities_count=db_count,
+            coupling_density=coupling,
             languages=lang_counts,
             layers=layer_counts,
             warnings=self.warnings

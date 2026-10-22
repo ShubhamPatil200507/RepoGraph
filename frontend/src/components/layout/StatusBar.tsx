@@ -27,6 +27,25 @@ export const StatusBar: React.FC = () => {
           <span>{summary.total_edges} connections</span>
         </span>
 
+        {summary.coupling_density !== undefined && (
+          <span className="flex items-center gap-1.5" title="Coupling Density (Edges / Symbols)">
+            <span className="text-slate-500">density:</span>
+            <span className="text-cyan-400 font-semibold">{summary.coupling_density}</span>
+          </span>
+        )}
+
+        {summary.entry_points_count !== undefined && summary.entry_points_count > 0 && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-indigo-300">
+            <span>{summary.entry_points_count} routes</span>
+          </span>
+        )}
+
+        {summary.database_entities_count !== undefined && summary.database_entities_count > 0 && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-emerald-300">
+            <span>{summary.database_entities_count} db models</span>
+          </span>
+        )}
+
         {/* Languages */}
         <div className="hidden md:flex items-center gap-2 pl-2 border-l border-space-800 text-[10px]">
           {Object.entries(summary.languages).map(([lang, count]) => (

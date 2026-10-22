@@ -82,6 +82,9 @@ export interface GraphSummary {
   total_files: number;
   total_nodes: number;
   total_edges: number;
+  entry_points_count?: number;
+  database_entities_count?: number;
+  coupling_density?: number;
   languages: Record<string, number>;
   layers: Record<string, number>;
   warnings: string[];

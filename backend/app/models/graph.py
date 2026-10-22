@@ -140,6 +140,9 @@ class GraphSummary(BaseModel):
     total_files: int = 0
     total_nodes: int = 0
     total_edges: int = 0
+    entry_points_count: int = 0
+    database_entities_count: int = 0
+    coupling_density: float = 0.0
     languages: Dict[str, int] = Field(default_factory=dict)
     layers: Dict[str, int] = Field(default_factory=dict)
     warnings: List[str] = Field(default_factory=list)

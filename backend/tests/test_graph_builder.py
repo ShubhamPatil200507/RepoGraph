@@ -20,6 +20,9 @@ class OrderService:
 
     assert norm_graph.summary.total_files == 1
     assert norm_graph.summary.total_nodes > 0
+    assert isinstance(norm_graph.summary.coupling_density, float)
+    assert norm_graph.summary.entry_points_count >= 0
+    assert norm_graph.summary.database_entities_count >= 0
 
     # Ensure deterministic 3D and 2D positions were calculated
     for node in norm_graph.nodes:
