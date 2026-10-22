@@ -357,3 +357,6 @@ export function useRepoStore() {
     resetAll,
   };
 }
+
+useRepoStore.getState = () => globalState;
+useRepoStore.setState = (partial: Partial<RepoState>) => updateState(partial);

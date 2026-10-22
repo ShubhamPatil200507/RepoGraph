@@ -48,6 +48,27 @@ export const Header: React.FC = () => {
     }
   };
 
+  const handleExportNativeGraph = () => {
+    if (!graph) return;
+    const exportPayload = {
+      repository: repo,
+      exported_at: new Date().toISOString(),
+      schema_version: '1.0.0',
+      summary: graph.summary,
+      nodes: graph.nodes,
+      edges: graph.edges,
+    };
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `repograph-architecture-${repo?.repo || 'codebase'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <header className="h-14 border-b border-space-800 bg-space-900/90 backdrop-blur px-4 flex items-center justify-between z-20 select-none">
       {/* Brand & Wordmark */}
@@ -156,6 +177,18 @@ export const Header: React.FC = () => {
 
       {/* Right: AI Model Status, Graphify Export & Actions */}
       <div className="flex items-center gap-2.5">
+        {/* RepoGraph Spatial Graph Export */}
+        {graph && (
+          <button
+            onClick={handleExportNativeGraph}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 transition"
+            title="Export Full 3D/2D Spatial Architecture Graph (repograph.json)"
+          >
+            <Share2 className="w-3 h-3 text-cyan-400" />
+            <span className="hidden lg:inline">Export Graph JSON</span>
+          </button>
+        )}
+
         {/* Graphify Export & Sponsor Badge */}
         {graph && (
           <button
