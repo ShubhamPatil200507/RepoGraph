@@ -220,9 +220,23 @@ async def trace_path(analysis_id: str, req: TraceRequest):
         record.graph, req.start_node_id, req.target_node_id, req.max_depth
     )
 
-    if trace_result.path_found and AIService.is_ai_available():
-        explanation = await AIService.explain_trace_path(trace_result)
-        trace_result.explanation = explanation
+    if trace_result.path_found:
+        if AIService.is_ai_available():
+            explanation = await AIService.explain_trace_path(trace_result)
+            if explanation:
+                trace_result.explanation = explanation
+            else:
+                trace_result.explanation = (
+                    f"Discovered {len(trace_result.path_nodes)}-step static execution path from "
+                    f"'{trace_result.path_nodes[0].label}' to '{trace_result.path_nodes[-1].label}' "
+                    f"through verified AST references."
+                )
+        else:
+            trace_result.explanation = (
+                f"Discovered {len(trace_result.path_nodes)}-step static execution path from "
+                f"'{trace_result.path_nodes[0].label}' to '{trace_result.path_nodes[-1].label}'. "
+                f"Configure GEMINI_API_KEY to activate Gemma narrative synthesis."
+            )
 
     return trace_result
 
@@ -239,7 +253,20 @@ async def analyze_impact(analysis_id: str, req: ImpactRequest):
 
     if AIService.is_ai_available():
         explanation = await AIService.explain_impact(impact_result)
-        impact_result.gemma_explanation = explanation
+        if explanation:
+            impact_result.gemma_explanation = explanation
+        else:
+            impact_result.gemma_explanation = (
+                f"Static impact analysis identified {len(impact_result.direct_dependents)} direct dependent(s) "
+                f"and {len(impact_result.transitive_dependents)} transitive dependent(s) for '{impact_result.target_node.label}' "
+                f"with an overall risk rating of '{impact_result.risk_level.upper()}'."
+            )
+    else:
+        impact_result.gemma_explanation = (
+            f"Static impact analysis identified {len(impact_result.direct_dependents)} direct dependent(s) "
+            f"and {len(impact_result.transitive_dependents)} transitive dependent(s) for '{impact_result.target_node.label}'. "
+            f"Configure GEMINI_API_KEY to activate Gemma architectural risk advice."
+        )
 
     return impact_result
 

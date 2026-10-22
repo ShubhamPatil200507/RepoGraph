@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Code2,
   ExternalLink,
@@ -42,6 +42,7 @@ export const InspectorPanel: React.FC = () => {
   const [question, setQuestion] = useState('Explain the architectural role of this component, its relationships, and data flow.');
   const [explainLoading, setExplainLoading] = useState(false);
   const [explainResult, setExplainResult] = useState<ExplainResponse | null>(null);
+  const [explainError, setExplainError] = useState<string | null>(null);
 
   // Trace Target Input State
   const [targetNodeInput, setTargetNodeInput] = useState('');
@@ -49,6 +50,11 @@ export const InspectorPanel: React.FC = () => {
 
   // Impact Loading State
   const [impactLoading, setImpactLoading] = useState(false);
+
+  useEffect(() => {
+    setExplainResult(null);
+    setExplainError(null);
+  }, [selectedNodeId]);
 
   if (!selectedNodeDetail || !selectedNodeId) {
     return (
@@ -80,11 +86,13 @@ export const InspectorPanel: React.FC = () => {
     if (!activeAnalysisId) return;
     setExplainLoading(true);
     setExplainResult(null);
+    setExplainError(null);
     try {
       const res = await api.explainNode(activeAnalysisId, node.id, question);
       setExplainResult(res);
     } catch (err: any) {
       console.error('Explain error:', err);
+      setExplainError(err.message || 'Failed to generate explanation. Check model connectivity.');
     } finally {
       setExplainLoading(false);
     }
@@ -344,8 +352,21 @@ export const InspectorPanel: React.FC = () => {
               </button>
             </div>
 
+            {explainError && (
+              <div className="p-3 bg-rose-950/20 border border-rose-800/40 rounded-lg text-rose-300 text-xs">
+                {explainError}
+              </div>
+            )}
+
             {explainResult && (
               <div className="space-y-3 pt-2">
+                {explainResult.model_used && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-brand-300 bg-brand-950/40 border border-brand-800/40 px-2 py-1 rounded">
+                    <Sparkles className="w-3 h-3 text-brand-400" />
+                    <span>Model: {explainResult.model_used}</span>
+                  </div>
+                )}
+
                 {/* Findings */}
                 {explainResult.verified_findings.length > 0 && (
                   <div className="p-3 bg-emerald-950/20 border border-emerald-800/40 rounded-lg">
