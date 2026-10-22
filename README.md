@@ -102,9 +102,73 @@ RepoGraph includes a bidirectional adapter for **Graphify** (`Graphify-Labs/grap
 - **Bidirectional Adapter (`graph_adapter.py`):** Translates between RepoGraph's normalized schema and Graphify v1 schema format while preserving stable node IDs, provenance, confidence status, and line references.
 - **One-Click Export:** Developers can click the **"Export Graphify"** button in the top navigation to obtain an interoperable knowledge graph for downstream AI coding agents or Graphify tools.
 
+### Codebase Architecture Visualized with Graphify
+
+<p align="center">
+  <img src="assets/repograph-graphify-architecture.png" alt="RepoGraph Codebase Architecture Graph designed using Graphify" width="850" />
+</p>
+
+*The topological structure of **ShubhamPatil200507/RepoGraph** generated and visualized using [Graphify](https://github.com/Graphify-Labs/graphify). Node clusters correspond to functional communities (API routes, services, parsers, and UI components) and semantic linkages across the application.*
+
 ---
 
 ## Architecture & Technology Stack
+
+### System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client["Frontend (React 19 + TypeScript + Vite)"]
+        Landing["Hero & Landing View<br/>(Repo Ingestion & Demo Selection)"]
+        subgraph Views["Interactive Architectural Views"]
+            C3D["🪐 3D Universe<br/>(Three.js / React Three Fiber)"]
+            C2D["🗺️ 2D Architecture Flow<br/>(@xyflow/react)"]
+            AFlow["⚡ API Data-Flow View<br/>(Route-to-DB Pipeline)"]
+            ERD["🗄️ Database ERD View<br/>(Entity-Relationship Diagrams)"]
+            DiffV["🔀 Revision Diff View<br/>(Semantic Git Comparison)"]
+        end
+        Inspector["🔍 Source Inspector & AI Copilot<br/>(AST Provenance & Evidence Explanations)"]
+        Store["Central Reactive Store<br/>(useRepoStore / Zustand)"]
+        Landing --> Views
+        Views <--> Store
+        Views --> Inspector
+    end
+
+    subgraph Backend["Backend Engine (FastAPI + Python 3.9+)"]
+        API["REST API Router<br/>(/analyze, /graph, /trace, /impact, /compare, /er-diagram, /graphify)"]
+        SafeIngest["Safe Ingestion Guard<br/>(SSRF Protection, Socket DNS Check, Zip-Slip Prevention)"]
+        
+        subgraph Parsers["Deterministic AST & Schema Parsers"]
+            PyParser["Python AST Parser<br/>(Classes, Functions, Routes, ORM)"]
+            JsParser["JS/TS/TSX Token Parser<br/>(Components, Imports, Route Handlers)"]
+            SqlParser["DDL & Prisma Parser<br/>(Tables, Columns, Primary/Foreign Keys)"]
+        end
+
+        subgraph GraphCore["Graph Intelligence Core"]
+            Builder["GraphBuilder<br/>(Normalized Schema & 3D Spatial Layout)"]
+            BFS["Feature Tracer & Impact Engine<br/>(Shortest-Path BFS & Reverse Dependency Cascade)"]
+            DiffEngine["ComparisonService<br/>(Cross-Commit Semantic Symbol Diffing)"]
+            Adapter["Graphify Adapter<br/>(Graphify v1 Schema Export)"]
+        end
+
+        subgraph AI["🧠 Gemma Open-Weight AI Layer"]
+            Gemma["Gemma 4 26B (gemma-4-26b-a4b-it)<br/>via Google GenAI SDK"]
+            Grounding["AST Grounding Validator<br/>(Tripartite Output & Node Cross-Validation)"]
+            Fallback["Instant Resilient Fallback<br/>(gemini-flash-lite / Deterministic Offline)"]
+            Gemma --> Grounding
+            Gemma -. Fallback on Quota .-> Fallback
+        end
+    end
+
+    Client <-->|REST JSON & Streaming| API
+    API --> SafeIngest
+    SafeIngest --> Parsers
+    Parsers --> GraphCore
+    GraphCore --> API
+    API <--> AI
+```
+
+### Directory Structure
 
 ```
 repograph/
@@ -222,7 +286,7 @@ Open your browser at **`http://localhost:5173`**.
 
 ## Running Automated Tests
 
-### Backend Tests (Pytest — 17 passed)
+### Backend Tests (Pytest — 22 passed)
 ```bash
 cd repograph/backend
 python -m pytest -v
@@ -240,7 +304,7 @@ Verifies:
 - Git revision comparison engine
 - FastAPI API endpoints & built-in demo ingestion
 
-### Frontend Tests (Vitest — 6 passed)
+### Frontend Tests (Vitest — 11 passed)
 ```bash
 cd repograph/frontend
 npm test
