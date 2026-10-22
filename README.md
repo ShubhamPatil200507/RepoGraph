@@ -1,5 +1,7 @@
 # RepoGraph
 
+[![CI](https://github.com/ShubhamPatil200507/RepoGraph/actions/workflows/ci.yml/badge.svg)](https://github.com/ShubhamPatil200507/RepoGraph/actions/workflows/ci.yml)
+
 **See how your code works. Explore how everything connects.**
 
 RepoGraph is an interactive software architecture explorer that transforms GitHub repositories into source-backed, three-dimensional maps of modules, entities, dependencies, and execution paths. Developers can explore how a project works, inspect real code relationships, and use hosted Gemma to explain complex connections.
