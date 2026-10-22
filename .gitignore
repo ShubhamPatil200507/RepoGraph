@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+backend/venv/
+venv/
+.venv/
+env/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Vite / Frontend build output
+frontend/dist/
+frontend/node_modules/
+.vite/
+
+# Temporary and local storage
+backend/storage/
+storage/
+temp/
+*.log
+
+# Environment files
+.env
+backend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
