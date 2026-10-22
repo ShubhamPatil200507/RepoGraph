@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from app.core.config import settings
 from app.models.api import (
     ExplainResponse,
@@ -137,13 +137,98 @@ class AIService:
         return cleaned
 
     @staticmethod
+    def validate_grounded_references(
+        findings: List[str],
+        known_nodes: Optional[List[GraphNode]] = None
+    ) -> Tuple[List[str], List[str], List[str]]:
+        """
+        Validates source references (file paths and code symbols) in model findings against
+        the actual repository graph nodes.
+        
+        If a finding references an unverified or nonexistent file or function/class symbol,
+        it is demoted to unverified hypotheses with an explicit [Ungrounded Reference] warning.
+
+        Returns:
+            (validated_findings, demoted_hypotheses, ungrounded_warnings)
+        """
+        if not known_nodes or not findings:
+            return findings, [], []
+
+        known_files: Set[str] = set()
+        known_symbols: Set[str] = set()
+        for n in known_nodes:
+            norm_path = n.file_path.replace("\\", "/").lower()
+            known_files.add(norm_path)
+            known_files.add(norm_path.split("/")[-1])
+            known_symbols.add(n.label.lower())
+            if "." in n.label:
+                parts = n.label.split(".")
+                for p in parts:
+                    known_symbols.add(p.lower())
+            if "::" in n.id:
+                symbol_part = n.id.split("::")[-1]
+                known_symbols.add(symbol_part.lower())
+
+        standard_framework_tokens = {
+            "fastapi", "flask", "express", "sqlalchemy", "pydantic", "httpx", "uvicorn",
+            "react", "three", "prisma", "pytest", "vitest", "sqlite", "postgres",
+            "postgresql", "mysql", "redis", "docker", "python", "node", "javascript",
+            "typescript", "database", "session", "request", "response", "router"
+        }
+
+        file_regex = re.compile(r'\b([\w\-./]+\.(?:py|tsx?|jsx?|sql|prisma|json))\b', re.IGNORECASE)
+        symbol_regex = re.compile(r'[`\'"]([A-Za-z_][A-Za-z0-9_]{2,})[`\'"]')
+
+        validated_findings: List[str] = []
+        demoted_hypotheses: List[str] = []
+        ungrounded_warnings: List[str] = []
+
+        for finding in findings:
+            has_ungrounded_ref = False
+            detected_unverified: List[str] = []
+
+            # Check file references
+            mentioned_files = file_regex.findall(finding)
+            for mf in mentioned_files:
+                norm_mf = mf.replace("\\", "/").lower()
+                base_mf = norm_mf.split("/")[-1]
+                if base_mf in {"package.json", "requirements.txt", "tsconfig.json", "dockerfile", "readme.md"}:
+                    continue
+                if norm_mf not in known_files and base_mf not in known_files:
+                    has_ungrounded_ref = True
+                    detected_unverified.append(f"file '{mf}'")
+
+            # Check explicit code symbols in quotes or backticks
+            mentioned_symbols = symbol_regex.findall(finding)
+            for sym in mentioned_symbols:
+                sym_lower = sym.lower()
+                if sym_lower in standard_framework_tokens:
+                    continue
+                if sym_lower not in known_symbols and not any(sym_lower in s for s in known_symbols):
+                    finding_lower = finding.lower()
+                    if any(term in finding_lower for term in ["calls", "invokes", "imports", "method", "function", "class", "model", "service"]):
+                        has_ungrounded_ref = True
+                        detected_unverified.append(f"symbol '{sym}'")
+
+            if has_ungrounded_ref and detected_unverified:
+                reasons = ", ".join(detected_unverified)
+                warning_msg = f"Reference to {reasons} not found in analyzed repository graph"
+                ungrounded_warnings.append(warning_msg)
+                demoted_hypotheses.append(f"[Ungrounded Reference: {reasons}] {finding}")
+            else:
+                validated_findings.append(finding)
+
+        return validated_findings, demoted_hypotheses, ungrounded_warnings
+
+    @staticmethod
     async def explain_component(
         node: GraphNode,
         source_snippet: Optional[str],
         incoming_edges: List[GraphEdge],
         outgoing_edges: List[GraphEdge],
         question: str,
-        secondary_node: Optional[GraphNode] = None
+        secondary_node: Optional[GraphNode] = None,
+        known_nodes: Optional[List[GraphNode]] = None
     ) -> ExplainResponse:
         sanitized_question = AIService._sanitize_prompt_input(question)
         evidence_items: List[GroundingEvidenceItem] = []
@@ -224,9 +309,20 @@ class AIService:
             # If sections were empty, provide grounded defaults
             if not findings:
                 findings = deterministic_findings
+
+            confidence = 0.92
+            if known_nodes:
+                val_findings, demoted, warnings = AIService.validate_grounded_references(findings, known_nodes)
+                findings = val_findings or deterministic_findings
+                hypotheses.extend(demoted)
+                for w in warnings:
+                    unknowns.append(f"Unverified evidence: {w}.")
+                if warnings:
+                    confidence = max(0.60, round(0.92 - (0.08 * len(warnings)), 2))
+
             return ExplainResponse(
                 explanation=response_text,
-                confidence=0.92,
+                confidence=confidence,
                 verified_findings=findings,
                 inferred_hypotheses=hypotheses,
                 unresolved_questions=unknowns,
