@@ -215,3 +215,124 @@ def test_order_creation_flow():
     assert True
 """
     (tests_dir / "test_orders.py").write_text(test_py, encoding="utf-8")
+
+
+def ensure_sample_repo_v2(target_dir: Path) -> None:
+    """Creates a second revision (v2) of the sample repository with intentional architectural changes for revision diffing."""
+    ensure_sample_repo(target_dir)
+
+    # 1. Update API routes with a new route and modified handler
+    routes_dir = target_dir / "backend" / "api"
+    routes_py = """# Order API endpoint handlers - v2
+from fastapi import APIRouter, HTTPException, Depends
+from backend.services.order_service import OrderService
+
+router = APIRouter(prefix="/api/orders", tags=["orders"])
+
+@router.post("/checkout")
+async def checkout_cart(payload: dict, service: OrderService = Depends()):
+    '''Checkout user cart items into a confirmed order with fraud checks.'''
+    try:
+        user_id = payload.get("user_id")
+        items = payload.get("items", [])
+        order = await service.create_order(user_id, items)
+        return {"status": "success", "order_id": order.id, "v2_verified": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{order_id}")
+async def get_order_details(order_id: int, service: OrderService = Depends()):
+    '''Fetch full details for an existing order.'''
+    return {"order_id": order_id, "status": "confirmed"}
+
+@router.post("/cancel")
+async def cancel_order(order_id: int, service: OrderService = Depends()):
+    '''Cancel an existing order and trigger refunds.'''
+    success = await service.cancel_order(order_id)
+    return {"status": "cancelled" if success else "failed"}
+"""
+    (routes_dir / "routes.py").write_text(routes_py, encoding="utf-8")
+
+    # 2. Update OrderService with cancel_order
+    services_dir = target_dir / "backend" / "services"
+    order_svc_py = """# Order orchestration and checkout service - v2
+from backend.models.order import Order, OrderItem
+from backend.services.payment import process_payment, refund_transaction
+from backend.services.inventory import reserve_stock, release_stock
+
+class OrderService:
+    def __init__(self, db_session):
+        self.db = db_session
+
+    async def create_order(self, user_id: int, items: list) -> Order:
+        '''Creates and validates an order, reserving inventory and charging payment.'''
+        total = sum(i["price"] * i["qty"] for i in items)
+        
+        for item in items:
+            await reserve_stock(item["product_id"], item["qty"])
+
+        payment_status = await process_payment(user_id, total)
+        if not payment_status:
+            raise ValueError("Payment failed")
+
+        order = Order(user_id=user_id, total_amount=total, status="confirmed")
+        self.db.add(order)
+        self.db.commit()
+        return order
+
+    async def cancel_order(self, order_id: int) -> bool:
+        '''Cancels an order, releases inventory and refunds transaction.'''
+        await refund_transaction(str(order_id))
+        return True
+"""
+    (services_dir / "order_service.py").write_text(order_svc_py, encoding="utf-8")
+
+    # 3. Add refunds table to schema.sql
+    sql_dir = target_dir / "database"
+    schema_sql = """-- Database DDL schema definition - v2
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(120) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    total_amount NUMERIC(10, 2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending'
+);
+
+CREATE TABLE order_items (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id),
+    product_name VARCHAR(100) NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    price NUMERIC(10, 2) NOT NULL
+);
+
+CREATE TABLE refunds (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id),
+    amount NUMERIC(10, 2) NOT NULL,
+    reason VARCHAR(255)
+);
+"""
+    (sql_dir / "schema.sql").write_text(schema_sql, encoding="utf-8")
+
+    # 4. Add test for cancel order
+    tests_dir = target_dir / "backend" / "tests"
+    test_py = """# Unit and integration tests for orders - v2
+import pytest
+from backend.services.order_service import OrderService
+
+def test_order_creation_flow():
+    '''Tests complete order calculation and validation logic.'''
+    assert True
+
+def test_order_cancellation_flow():
+    '''Tests cancellation and refund dispatch.'''
+    assert True
+"""
+    (tests_dir / "test_orders.py").write_text(test_py, encoding="utf-8")

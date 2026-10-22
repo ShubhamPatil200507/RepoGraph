@@ -112,8 +112,12 @@ class GitHubFetcher:
         demo_base = settings.BASE_DIR / "sample_repos" / sample_name
         if not demo_base.exists():
             # If default sample doesn't exist yet, we'll initialize it
-            from app.services.sample_generator import ensure_sample_repo
-            ensure_sample_repo(demo_base)
+            if sample_name == "ecommerce-platform-v2":
+                from app.services.sample_generator import ensure_sample_repo_v2
+                ensure_sample_repo_v2(demo_base)
+            else:
+                from app.services.sample_generator import ensure_sample_repo
+                ensure_sample_repo(demo_base)
 
         dest_dir = Path(tempfile.mkdtemp(prefix=f"repograph_demo_{sample_name}_"))
         shutil.copytree(demo_base, dest_dir, dirs_exist_ok=True)

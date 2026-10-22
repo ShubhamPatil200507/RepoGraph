@@ -4,6 +4,8 @@ import {
   Layers,
   Database,
   GitBranch,
+  GitCompare,
+  Route,
   RotateCcw,
   Download,
   Share2,
@@ -112,6 +114,19 @@ export const Header: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setView('api')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeView === 'api'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-space-850'
+            }`}
+            title="API Data-Flow Explorer"
+          >
+            <Route className="w-3.5 h-3.5" />
+            <span>API Flow</span>
+          </button>
+
+          <button
             onClick={() => setView('er')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
               activeView === 'er'
@@ -122,6 +137,19 @@ export const Header: React.FC = () => {
           >
             <Database className="w-3.5 h-3.5" />
             <span>ER Diagram</span>
+          </button>
+
+          <button
+            onClick={() => setView('compare')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeView === 'compare'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-space-850'
+            }`}
+            title="Git Revision Comparison"
+          >
+            <GitCompare className="w-3.5 h-3.5" />
+            <span>Revision Diff</span>
           </button>
         </div>
       )}

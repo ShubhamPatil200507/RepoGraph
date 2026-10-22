@@ -4,7 +4,9 @@ import { Header } from './components/layout/Header';
 import { StatusBar } from './components/layout/StatusBar';
 import { UniverseCanvas } from './components/canvas3d/UniverseCanvas';
 import { FlowCanvas } from './components/canvas2d/FlowCanvas';
+import { ApiFlowView } from './components/apiflow/ApiFlowView';
 import { ERDiagramView } from './components/er/ERDiagramView';
+import { RevisionCompareView } from './components/compare/RevisionCompareView';
 import { FileTreePanel } from './components/filetree/FileTreePanel';
 import { InspectorPanel } from './components/inspector/InspectorPanel';
 import { InitialHero } from './components/modals/InitialHero';
@@ -27,7 +29,9 @@ export const App: React.FC = () => {
             <div className="flex-1 relative h-full">
               {activeView === '3d' && <UniverseCanvas />}
               {activeView === '2d' && <FlowCanvas />}
+              {activeView === 'api' && <ApiFlowView />}
               {activeView === 'er' && <ERDiagramView />}
+              {activeView === 'compare' && <RevisionCompareView />}
             </div>
 
             <InspectorPanel />

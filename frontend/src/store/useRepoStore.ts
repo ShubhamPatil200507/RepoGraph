@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import {
+  ActiveView,
   AIStatusResponse,
   AnalysisStatusResponse,
+  ApiFlowData,
+  ApiRouteInfo,
+  ComparisonResult,
   ERDiagramData,
   FileItem,
   GraphNode,
@@ -20,7 +24,7 @@ export interface RepoState {
   erDiagram: ERDiagramData | null;
   selectedNodeId: string | null;
   selectedNodeDetail: NodeDetailResponse | null;
-  activeView: '3d' | '2d' | 'er';
+  activeView: ActiveView;
   isAnalyzing: boolean;
   analysisError: string | null;
   aiStatus: AIStatusResponse | null;
@@ -30,6 +34,11 @@ export interface RepoState {
   selectedFileFilter: string | null;
   traceResult: TraceResponse | null;
   impactResult: ImpactResponse | null;
+  apiRoutes: ApiRouteInfo[];
+  activeRouteId: string | null;
+  apiFlowData: ApiFlowData | null;
+  comparisonResult: ComparisonResult | null;
+  isComparing: boolean;
 }
 
 let globalState: RepoState = {
@@ -50,6 +59,11 @@ let globalState: RepoState = {
   selectedFileFilter: null,
   traceResult: null,
   impactResult: null,
+  apiRoutes: [],
+  activeRouteId: null,
+  apiFlowData: null,
+  comparisonResult: null,
+  isComparing: false,
 };
 
 const listeners = new Set<() => void>();
@@ -182,8 +196,57 @@ export function useRepoStore() {
     }
   }, []);
 
-  const setView = useCallback((view: '3d' | '2d' | 'er') => {
+  const setView = useCallback((view: ActiveView) => {
     updateState({ activeView: view });
+    if (view === 'api' && globalState.activeAnalysisId && globalState.apiRoutes.length === 0) {
+      api.getApiRoutes(globalState.activeAnalysisId).then((routes) => {
+        updateState({ apiRoutes: routes });
+        if (routes.length > 0) {
+          updateState({ activeRouteId: routes[0].id });
+          api.getApiFlow(globalState.activeAnalysisId!, routes[0].id).then((flow) => {
+            updateState({ apiFlowData: flow });
+          });
+        }
+      });
+    }
+  }, []);
+
+  const loadApiRoutes = useCallback(async () => {
+    if (!globalState.activeAnalysisId) return;
+    try {
+      const routes = await api.getApiRoutes(globalState.activeAnalysisId);
+      updateState({ apiRoutes: routes });
+      if (routes.length > 0 && !globalState.activeRouteId) {
+        updateState({ activeRouteId: routes[0].id });
+        const flow = await api.getApiFlow(globalState.activeAnalysisId, routes[0].id);
+        updateState({ apiFlowData: flow });
+      }
+    } catch (err: any) {
+      console.error('Failed to load API routes:', err);
+    }
+  }, []);
+
+  const loadApiFlow = useCallback(async (routeId: string) => {
+    if (!globalState.activeAnalysisId) return;
+    updateState({ activeRouteId: routeId });
+    try {
+      const flow = await api.getApiFlow(globalState.activeAnalysisId, routeId);
+      updateState({ apiFlowData: flow });
+    } catch (err: any) {
+      console.error('Failed to load API flow:', err);
+    }
+  }, []);
+
+  const runComparison = useCallback(async (params?: { target_analysis_id?: string; target_repository_url?: string; target_branch?: string; base_ref?: string; target_ref?: string }) => {
+    if (!globalState.activeAnalysisId) return;
+    updateState({ isComparing: true });
+    try {
+      const res = await api.compareRevisions(globalState.activeAnalysisId, params);
+      updateState({ comparisonResult: res, isComparing: false });
+    } catch (err: any) {
+      console.error('Comparison failed:', err);
+      updateState({ isComparing: false });
+    }
   }, []);
 
   const setSearchQuery = useCallback((query: string) => {
@@ -267,6 +330,11 @@ export function useRepoStore() {
       selectedFileFilter: null,
       traceResult: null,
       impactResult: null,
+      apiRoutes: [],
+      activeRouteId: null,
+      apiFlowData: null,
+      comparisonResult: null,
+      isComparing: false,
     });
   }, []);
 
@@ -283,6 +351,9 @@ export function useRepoStore() {
     clearTrace,
     runImpact,
     clearImpact,
+    loadApiRoutes,
+    loadApiFlow,
+    runComparison,
     resetAll,
   };
 }

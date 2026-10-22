@@ -1,6 +1,9 @@
 import {
   AIStatusResponse,
   AnalysisStatusResponse,
+  ApiFlowData,
+  ApiRouteInfo,
+  ComparisonResult,
   ERDiagramData,
   ExplainResponse,
   FileItem,
@@ -103,5 +106,20 @@ export const api = {
   deleteAnalysis: (analysisId: string) =>
     request<{ message: string }>(`/analyses/${analysisId}`, {
       method: 'DELETE',
+    }),
+
+  getApiRoutes: (analysisId: string) =>
+    request<ApiRouteInfo[]>(`/analyses/${analysisId}/api-routes`),
+
+  getApiFlow: (analysisId: string, routeId: string, maxDepth: number = 6) =>
+    request<ApiFlowData>(`/analyses/${analysisId}/api-flow/${encodeURIComponent(routeId)}?max_depth=${maxDepth}`),
+
+  compareRevisions: (
+    analysisId: string,
+    params?: { target_analysis_id?: string; target_repository_url?: string; target_branch?: string; base_ref?: string; target_ref?: string }
+  ) =>
+    request<ComparisonResult>(`/analyses/${analysisId}/compare`, {
+      method: 'POST',
+      body: JSON.stringify(params || {}),
     }),
 };

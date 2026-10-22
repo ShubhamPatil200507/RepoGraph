@@ -22,9 +22,21 @@ const NodeMesh: React.FC<{
   isNeighbor: boolean;
   isDimmed: boolean;
   isTraceNode: boolean;
+  isDirectImpact?: boolean;
+  isTransitiveImpact?: boolean;
   showLabels: boolean;
   onClick: () => void;
-}> = ({ node, isSelected, isNeighbor, isDimmed, isTraceNode, showLabels, onClick }) => {
+}> = ({
+  node,
+  isSelected,
+  isNeighbor,
+  isDimmed,
+  isTraceNode,
+  isDirectImpact = false,
+  isTransitiveImpact = false,
+  showLabels,
+  onClick,
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -36,9 +48,11 @@ const NodeMesh: React.FC<{
   }, [node.position_3d]);
 
   const color = useMemo(() => {
+    if (isDirectImpact) return '#f59e0b'; // Amber for direct dependent
+    if (isTransitiveImpact) return '#f43f5e'; // Rose for transitive dependent
     if (isTraceNode) return '#06b6d4';
     return getLayerColor(node.layer).hex;
-  }, [node.layer, isTraceNode]);
+  }, [node.layer, isTraceNode, isDirectImpact, isTransitiveImpact]);
 
   useFrame((state) => {
     if (!meshRef.current) return;
@@ -210,9 +224,11 @@ export const UniverseCanvas: React.FC = () => {
     selectedTypes,
     selectedFileFilter,
     traceResult,
+    impactResult,
   } = useRepoStore();
 
-  const [showLabels, setShowLabels] = useState(true);
+  const isLargeGraph = (graph?.nodes?.length || 0) > 150;
+  const [showLabels, setShowLabels] = useState(!isLargeGraph);
   const [showPlanes, setShowPlanes] = useState(true);
   const [cameraResetKey, setCameraResetKey] = useState(0);
 
@@ -268,6 +284,19 @@ export const UniverseCanvas: React.FC = () => {
     return new Set(traceResult.path_edges.map((e) => e.id));
   }, [traceResult]);
 
+  // Impact nodes
+  const directImpactIds = useMemo(() => {
+    if (!impactResult?.direct_dependents) return new Set<string>();
+    return new Set(impactResult.direct_dependents.map((n) => n.id));
+  }, [impactResult]);
+
+  const transitiveImpactIds = useMemo(() => {
+    if (!impactResult?.transitive_dependents) return new Set<string>();
+    return new Set(impactResult.transitive_dependents.map((n) => n.id));
+  }, [impactResult]);
+
+  const hasImpactActive = directImpactIds.size > 0 || transitiveImpactIds.size > 0;
+
   const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) : null;
 
   const handleResetCamera = () => {
@@ -300,9 +329,13 @@ export const UniverseCanvas: React.FC = () => {
           const isSelected = node.id === selectedNodeId;
           const isNeighbor = neighborIds.has(node.id);
           const isTraceNode = traceNodeIds.has(node.id);
+          const isDirectImpact = directImpactIds.has(node.id);
+          const isTransitiveImpact = transitiveImpactIds.has(node.id);
+
           const isDimmed = Boolean(
-            (selectedNodeId && !isSelected && !isNeighbor) ||
-            (traceNodeIds.size > 0 && !isTraceNode)
+            (selectedNodeId && !isSelected && !isNeighbor && !isDirectImpact && !isTransitiveImpact) ||
+            (traceNodeIds.size > 0 && !isTraceNode) ||
+            (hasImpactActive && !isDirectImpact && !isTransitiveImpact && node.id !== impactResult?.target_node?.id)
           );
 
           return (
@@ -313,6 +346,8 @@ export const UniverseCanvas: React.FC = () => {
               isNeighbor={isNeighbor}
               isDimmed={isDimmed}
               isTraceNode={isTraceNode}
+              isDirectImpact={isDirectImpact}
+              isTransitiveImpact={isTransitiveImpact}
               showLabels={showLabels}
               onClick={() => selectNode(node.id)}
             />
@@ -386,6 +421,15 @@ export const UniverseCanvas: React.FC = () => {
         >
           <Layers className="w-4 h-4" />
         </button>
+
+        {isLargeGraph && (
+          <div
+            className="p-1 text-[9px] font-mono text-cyan-400 text-center max-w-[60px] leading-tight bg-space-950/80 rounded border border-cyan-800/40"
+            title="LOD active: Rendering optimized for high-density graph"
+          >
+            LOD ON
+          </div>
+        )}
       </div>
 
       {/* Universe Layer Legend */}
@@ -398,6 +442,21 @@ export const UniverseCanvas: React.FC = () => {
               <span className="text-slate-300 capitalize">{layer.replace('_', ' ')}</span>
             </div>
           ))}
+
+          <div className="pt-1.5 mt-1 border-t border-space-800 flex flex-col gap-1 text-[10px] font-mono">
+            <div className="flex items-center gap-2 text-cyan-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+              <span>Trace Path</span>
+            </div>
+            <div className="flex items-center gap-2 text-amber-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+              <span>Direct Dependent</span>
+            </div>
+            <div className="flex items-center gap-2 text-rose-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+              <span>Transitive Impact</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

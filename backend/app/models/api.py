@@ -118,8 +118,25 @@ class ImpactResponse(BaseModel):
     affected_tests: List[GraphNode] = Field(default_factory=list)
     affected_layers: Dict[str, int] = Field(default_factory=dict)
     total_impact_count: int = 0
+    risk_level: str = "low"
     gemma_explanation: Optional[str] = None
     disclaimer: str = (
         "Change impact is computed via static reverse-dependency graph traversal. "
         "Runtime reflection, dynamic routing, or external consumers are not guaranteed to be captured."
     )
+
+
+class CompareRequest(BaseModel):
+    target_analysis_id: Optional[str] = None
+    target_repository_url: Optional[str] = None
+    target_branch: Optional[str] = None
+    base_ref: Optional[str] = "main"
+    target_ref: Optional[str] = "v2"
+
+
+class CompareResponse(BaseModel):
+    comparison_meta: Dict[str, Any]
+    summary: Dict[str, Any]
+    files: Dict[str, List[str]]
+    changes: Dict[str, Any]
+    overlay_graph: Dict[str, Any]

@@ -207,6 +207,7 @@ export interface ImpactResponse {
   affected_tests: GraphNode[];
   affected_layers: Record<string, number>;
   total_impact_count: number;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical' | string;
   gemma_explanation?: string;
   disclaimer: string;
 }
@@ -216,4 +217,76 @@ export interface AIStatusResponse {
   configured_model: string;
   preferred_model: string;
   message: string;
+}
+
+export type ActiveView = '3d' | '2d' | 'api' | 'er' | 'compare';
+
+export interface ApiRouteInfo {
+  id: string;
+  label: string;
+  http_method: string;
+  route_path: string;
+  file_path: string;
+  start_line?: number;
+  end_line?: number;
+  summary?: string;
+  confidence: number;
+}
+
+export interface ApiFlowData {
+  route: {
+    id: string;
+    label: string;
+    http_method: string;
+    route_path: string;
+    file_path: string;
+    start_line?: number;
+    summary?: string;
+  };
+  stages: {
+    route: any[];
+    middleware_auth: any[];
+    service_logic: any[];
+    data_access: any[];
+    database_entities: any[];
+    external_integrations: any[];
+  };
+  flow_nodes: GraphNode[];
+  flow_edges: GraphEdge[];
+  total_connected_components: number;
+  disclaimer: string;
+}
+
+export interface ComparisonResult {
+  comparison_meta: {
+    base_ref: string;
+    target_ref: string;
+    total_base_nodes: number;
+    total_target_nodes: number;
+  };
+  summary: {
+    added_count: number;
+    modified_count: number;
+    removed_count: number;
+    impacted_count: number;
+    changed_files_count: number;
+  };
+  files: {
+    added: string[];
+    modified: string[];
+    deleted: string[];
+  };
+  changes: {
+    added_symbols: any[];
+    modified_symbols: any[];
+    removed_symbols: any[];
+    changed_routes: any[];
+    changed_schemas: any[];
+    changed_tests: any[];
+    impacted_node_ids: string[];
+  };
+  overlay_graph: {
+    nodes: any[];
+    edges: GraphEdge[];
+  };
 }

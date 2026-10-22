@@ -64,6 +64,16 @@ class ImpactService:
         for n in all_impacted:
             affected_layers[n.layer] = affected_layers.get(n.layer, 0) + 1
 
+        total_count = len(all_impacted)
+        if len(affected_routes) >= 3 or len(affected_db) >= 2 or total_count >= 15:
+            risk = "critical"
+        elif len(affected_routes) >= 1 or len(affected_db) >= 1 or total_count >= 6:
+            risk = "high"
+        elif total_count >= 2:
+            risk = "medium"
+        else:
+            risk = "low"
+
         return ImpactResponse(
             target_node=target_node,
             direct_dependents=direct_dependents,
@@ -72,5 +82,6 @@ class ImpactService:
             affected_database=affected_db,
             affected_tests=affected_tests,
             affected_layers=affected_layers,
-            total_impact_count=len(all_impacted)
+            total_impact_count=total_count,
+            risk_level=risk
         )

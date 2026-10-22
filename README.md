@@ -13,55 +13,72 @@ RepoGraph is an interactive software architecture explorer that transforms GitHu
 > Gemma explains the evidence.  
 > The visualization makes the architecture understandable.**
 
-RepoGraph never uses language models as a substitute for syntax-aware code parsing or graph construction. Deterministic AST parsers identify verified symbols, routes, models, and dependencies. Hosted Gemma is used exclusively to explain verified findings grounded strictly in repository evidence.
+RepoGraph never uses language models as a substitute for syntax-aware code parsing or graph construction. Deterministic AST parsers identify verified symbols, routes, models, and dependencies. Graph algorithms determine execution paths and downstream change impact. Hosted Gemma is used exclusively to explain verified findings grounded strictly in repository evidence.
 
 ---
 
-## Key Features
+## The Seven Core Capabilities
 
-### 1. Interactive 3D Architecture Universe
-- **Navigable Spatial Universe:** Rendered with Three.js, React Three Fiber, and Drei.
-- **Topological Layering:** Modules and entities are spatially stratified by architectural layers (UI, API, Business Logic, Data Access, Database, Config, Tests).
-- **Deterministic Seeded Layout:** Stable, reproducible spatial positioning across repeated analyses.
-- **Dynamic Highlighting & Dimming:** Selecting any node highlights immediate neighbors and active connection rays while gently dimming unrelated clusters.
-- **Accessible Orbit Controls:** Smooth damping, zoom, pan, camera reset, and automatic focus-fly-to on selected components.
+### 1. Custom 3D Architecture Explorer
+- **Spatial Topology & Layering:** Stratified by architectural tiers on distinct Z-planes (UI at $z=36$, API at $z=20$, Business Logic at $z=0$, Data Access at $z=-20$, Database at $z=-36$).
+- **Deterministic Layout:** Stable, reproducible spatial positioning across repeated analyses.
+- **Interactive Controls:** OrbitControls with smooth damping, zoom, pan, camera reset, and automatic focus-fly-to on selected components.
+- **Dynamic Highlights:** Selecting any node highlights immediate neighbors and active connection rays while gently dimming unrelated clusters. Traced execution paths and change-impact cascades glow with distinct emissive auras (amber for direct dependents, rose for transitive dependents).
+- **LOD Performance Safeguards:** Automatic level-of-detail indicators when graphs exceed threshold node counts.
+- **Complementary 2D Flow View:** Powered by `@xyflow/react` for developers who prefer flat, structured diagrams, with complete bidirectional state synchronization.
 
-### 2. Complementary 2D Architecture Graph
-- Powered by `@xyflow/react` (React Flow) for developers who prefer flat, structured diagrams.
-- Uses the **exact same normalized graph schema** as the 3D universe.
-- Interactive node cards showing symbol type, architectural layer, confidence, and line references.
-- Full selection synchronization with the 3D universe and source inspector.
+### 2. API & Application Data-Flow Explorer
+- **Framework-Aware Route Discovery:** Automatically detects HTTP endpoints across FastAPI (`@app.get`, `@router.post`), Flask, and Express handlers.
+- **Multi-Stage Processing Pipeline:** Traces from HTTP entry point through:
+  1. Route Definition
+  2. Middleware & Authentication Guards
+  3. Service & Controller Logic
+  4. Data Access Operations
+  5. Database Entities & Tables
+  6. External Integrations
+- **Dedicated View (`ApiFlowView`):** Interactive endpoint selector, stage-by-stage node cards, line-number provenance, and verified vs. inferred confidence indicators.
 
-### 3. Dedicated Entity-Relationship (ER) Diagram
-- Automatically detects database models from SQLAlchemy, Prisma schemas, Django models, and SQL DDL (`CREATE TABLE`).
-- Displays entities, attributes, primary keys (`PK`), foreign keys (`FK`), and verified relationships.
-- **Honest Empty State:** When no database evidence exists, RepoGraph clearly states what was checked instead of fabricating fake tables.
+### 3. Git Branch & Commit Comparison
+- **Semantic Codebase Diffing:** `ComparisonService` matches symbols by stable identity (`file_path::symbol_name`) across Git branches, tags, or commits.
+- **Change Categorization:** Identifies added, modified, deleted, and unchanged symbols.
+- **Architectural Ripple Summary:** Surfaces modified API endpoints, database schema shifts, affected unit tests, and total downstream graph ripple.
+- **Overlay Graph & Dedicated View (`RevisionCompareView`):** Side-by-side metric cards, collapsible file diff tree, and an overlay graph highlighting new components in green, modified in amber, and deleted in red.
 
-### 4. Real Source Inspector & Grounding Evidence Panel
-- Inspect real source code snippets extracted from analyzed repository files with exact line numbers.
-- Safe external links to GitHub (`blob/main/path#L42-L88`).
-- Interactive incoming and outgoing relationship lists with clickable graph navigation.
-- Clear evidence status badges (`verified`, `inferred`, `unknown`).
+### 4. Evidence-Grounded Gemma Architecture Copilot
+- **Hosted Gemma 4 Integration:** Configured with `gemma-4-26b-a4b-it` via official Google Gen AI SDK (`google-genai`).
+- **Resilient Fallback:** Single-attempt retry (`attempts=1`) prevents hanging on Google preview quotas, with instant automatic fallback to `gemini-flash-lite-latest`.
+- **Structured Evidence Grounding:** Enforces strict tripartite output:
+  - **Confirmed Findings:** Strictly backed by AST nodes, imports, calls, or schema definitions.
+  - **Inferred Hypotheses:** Architectural patterns inferred with stated caveats.
+  - **Unresolved Questions:** Acknowledged gaps, dynamic invocations, or unparsed runtime behavior.
+- **Prompt Injection Defense:** Strict encapsulation blocks user prompts from overriding architectural guidelines.
 
-### 5. Hosted Gemma 4 Architecture Intelligence
-- Uses the official Google Gen AI Python SDK (`google-genai`) with model identifier `gemma-4-26b-a4b-it`.
-- Strictly evidence-grounded: provided only with selected node details, verified edges, and extracted source snippets.
-- Explicitly separates **Confirmed Findings**, **Inferred Hypotheses**, and **Unresolved Questions**.
-- **Graceful Degradation:** The entire application (parsing, 3D/2D exploration, ER diagrams, feature tracing) remains fully functional without an API key; AI actions are marked clearly as unavailable.
+### 5. Database & Application Data-Flow Integration
+- **DDL & Schema Parsing:** Full support for SQL `CREATE TABLE` statements (data types, primary keys, foreign keys) and Prisma `model` blocks.
+- **Cross-Layer AST Edges:** Python parser tracks ORM `__tablename__`, parameter types (`service: OrderService`), model instantiations, and database write calls (`db.add()`, `db.commit()`), creating explicit `reads_from` and `writes_to` graph edges linking application functions directly to database entities.
+- **Dedicated ER View (`ERDiagramView`):** Interactive entity cards, attribute inspect, relationship lines, and "Connected App Operations" showing which functions read from or write to each table.
 
-### 6. Feature Path Tracing
-- Traverses the static dependency graph using Breadth-First Search (BFS) to identify shortest connection paths between components.
-- Highlights path sequences across the 3D and 2D canvas with step-by-step evidence.
-- Gemma explains how control or data flows across the discovered path.
+### 6. Change Impact Analysis
+- **Reverse-Dependency Engine:** Breadth-First Search (BFS) following incoming caller and dependency edges up to a configurable `max_depth`.
+- **Architectural Impact Categorization:** Partitions impacted nodes into direct dependents, transitive dependents, affected API routes, affected database models, and affected unit tests.
+- **Deterministic Risk Rating:** Evaluates reach and criticality into `low`, `medium`, `high`, or `critical`.
+- **AI Risk Mitigation Advice:** Gemma synthesizes actionable testing and deployment advice based on the affected components.
+- **Canvas Integration:** Impacted nodes highlighted in 3D Universe and 2D Flow canvases with glowing amber and rose aura.
 
-### 7. Change Impact Analysis
-- "What might break if this component changes?"
-- Reverse-dependency graph traversal computes direct and transitive dependents.
-- Highlights affected API routes, database models, and unit tests with risk mitigation advice from Gemma.
+### 7. Safe, Reliable Repository-Analysis Pipeline
+- **SSRF Prevention:** Host verification (strictly `github.com`), URL validation, and socket DNS pre-resolution blocking private, loopback (`127.0.0.1`), link-local (`169.254.169.254`), and multicast ranges (with RFC 6052 NAT64 compatibility).
+- **Safe Zip Extraction:** Enforces strict bounds: 50 MB max zip size, 120 MB max uncompressed size, 5,000 max files, 5 MB max single file size, with strict path traversal prevention (`..`).
+- **Zero Code Execution:** Repository files are never executed, installed, or compiled. Ingestion is purely read-only static analysis.
+- **Multi-Stage Progress & Cleanup:** Stage-based progress updates (`in_progress` -> `completed`) and explicit `DELETE /api/analyses/{id}` resource cleanup.
 
-### 8. ⚡ Graphify Knowledge Graph Integration (Sponsor Feature)
-- **Standard Knowledge Graph Export:** Seamlessly exports analyzed repository graphs in official **Graphify** (`Graphify-Labs/graphify`) format (`graphify-out/graph.json`).
+---
+
+## ⚡ Graphify Knowledge Graph Integration (Sponsor Feature)
+
+RepoGraph includes a bidirectional adapter for **Graphify** (`Graphify-Labs/graphify`):
+- **Standard Knowledge Graph Export:** Seamlessly exports analyzed repository graphs in official Graphify v1 schema format (`GET /api/analyses/{id}/graphify`).
 - **Community & Semantic Mapping:** Maps architectural layers and modules directly into Graphify community clusters, node types (`code`, `concept`, `document`, `rationale`), and audited relationship types (`calls`, `imports`, `uses`, `inherits`).
+- **Bidirectional Adapter (`graph_adapter.py`):** Translates between RepoGraph's normalized schema and Graphify v1 schema format while preserving stable node IDs, provenance, confidence status, and line references.
 - **One-Click Export:** Developers can click the **"Export Graphify"** button in the top navigation to obtain an interoperable knowledge graph for downstream AI coding agents or Graphify tools.
 
 ---
@@ -72,24 +89,28 @@ RepoGraph never uses language models as a substitute for syntax-aware code parsi
 repograph/
 ├── backend/                  # FastAPI Application
 │   ├── app/
-│   │   ├── api/             # REST endpoints (health, analyze, graph, explain, trace, impact)
+│   │   ├── api/             # REST endpoints (health, analyze, graph, explain, trace, impact, api-routes, compare)
 │   │   ├── core/            # Config, settings, SSRF protection, safe archive extraction
 │   │   ├── models/          # Normalized Pydantic models (nodes, edges, ER, API schemas)
-│   │   └── services/        # Parsers (Python AST, JS/TS, SQL/Prisma), GraphBuilder, AI service
-│   ├── sample_repos/        # Pre-packaged sample repositories for instant local exploration
-│   └── tests/               # Pytest suite (security, parsers, graph builder, trace, impact, API)
+│   │   └── services/        # Parsers (Python AST, JS/TS, SQL/Prisma), GraphBuilder, AI service,
+│   │                        # ComparisonService, ApiFlowService, GraphAdapter, ImpactService
+│   ├── sample_repos/        # Pre-packaged sample repositories (ecommerce-platform, ecommerce-platform-v2)
+│   └── tests/               # Pytest suite (security, parsers, graph builder, trace, impact, comparison, api-flow, adapter)
 ├── frontend/                 # Vite + React + TypeScript
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── canvas3d/    # React Three Fiber 3D Architecture Universe
 │   │   │   ├── canvas2d/    # @xyflow/react 2D Architecture Graph
+│   │   │   ├── apiflow/     # API & Application Data-Flow Explorer View
+│   │   │   ├── compare/     # Revision Comparison View
 │   │   │   ├── er/          # Database Entity-Relationship Diagram
 │   │   │   ├── inspector/   # Source code inspector & Gemma intelligence panel
 │   │   │   ├── filetree/    # Collapsible file tree & search/filters
 │   │   │   └── modals/      # Initial hero landing & stage-based progress
-│   │   ├── store/           # Centralized reactive state management
+│   │   ├── store/           # Centralized reactive state management (useRepoStore)
 │   │   └── utils/           # Architectural layer theme & token utilities
 │   └── src/__tests__/       # Vitest & React Testing Library suite
+├── docs/                     # Feature audit matrix, implementation plan, architecture docs
 ├── .env.example              # Configuration template
 ├── SECURITY.md               # Security architecture & vulnerability disclosure policy
 └── README.md
@@ -111,9 +132,9 @@ repograph/
 RepoGraph enforces layered security for untrusted public repository ingestion:
 - **SSRF Prevention:** Strict HTTPS scheme validation, hostname whitelisting (`github.com`), DNS pre-resolution blocking private, loopback (`127.0.0.1`), link-local (`169.254.169.254`), and multicast ranges (with RFC 6052 NAT64 compatibility).
 - **Zip-Slip Protection:** Validates that all extracted archive paths remain strictly inside the designated sandboxed temporary directory. Discards dangerous symlinks.
-- **Resource Limits:** Enforces strict limits: 50 MB max zip size, 120 MB max uncompressed size, 3,500 max files, 2 MB max single file size.
+- **Resource Limits:** Enforces strict limits: 50 MB max zip size, 120 MB max uncompressed size, 5,000 max files, 5 MB max single file size.
 - **Zero Code Execution:** Repository files are never executed, installed, or compiled. Ingestion is purely read-only static analysis.
-- **Credential Protection:** `GEMINI_API_KEY` and `GITHUB_TOKEN` remain strictly on the backend and are never sent to the client.
+- **Credential Protection:** `GEMINI_API_KEY` and `GITHUB_TOKEN` remain strictly on the backend and are never exposed to the client.
 
 See [SECURITY.md](SECURITY.md) for full details.
 
@@ -158,7 +179,7 @@ python -m pip install -r requirements.txt
 Run backend server:
 ```bash
 # Starts FastAPI server on http://localhost:8000
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### 3. Configure Frontend
@@ -180,12 +201,12 @@ Open your browser at **`http://localhost:5173`**.
 
 ## Running Automated Tests
 
-### Backend Tests (Pytest)
+### Backend Tests (Pytest — 17 passed)
 ```bash
 cd repograph/backend
 python -m pytest -v
 ```
-All 13 unit tests verify:
+Verifies:
 - SSRF prevention & DNS resolution checks
 - Zip Slip path traversal defense
 - Python AST class, route, and model detection
@@ -193,17 +214,27 @@ All 13 unit tests verify:
 - SQL DDL table & relation extraction
 - Normalized graph construction & deterministic 3D/2D spatial layout
 - Shortest-path BFS feature tracing & transitive change impact propagation
+- Graphify bidirectional schema adapter
+- API & Application Data-Flow service
+- Git revision comparison engine
 - FastAPI API endpoints & built-in demo ingestion
 
-### Frontend Tests (Vitest & React Testing Library)
+### Frontend Tests (Vitest — 6 passed)
 ```bash
 cd repograph/frontend
 npm test
 ```
-All unit tests verify:
+Verifies:
 - Initial landing screen, branding, and sample repository triggers
 - Layer color definitions & badge mappings
 - ER diagram rendering and honest empty state behavior
+
+### End-to-End Verification Script
+```bash
+cd repograph
+python backend/tests/verify_flow.py
+```
+Exercises all seven capabilities sequentially against the live backend server.
 
 ---
 
@@ -217,6 +248,9 @@ All unit tests verify:
 | `GET` | `/api/analyses/{id}` | Honest stage-based analysis progress & error reporting |
 | `GET` | `/api/analyses/{id}/graph` | Normalized graph with deterministic 3D & 2D spatial layouts |
 | `GET` | `/api/analyses/{id}/graphify` | Exports standard Graphify-Labs knowledge graph (`graph.json`) |
+| `GET` | `/api/analyses/{id}/api-routes` | Returns all detected framework API endpoints |
+| `GET` | `/api/analyses/{id}/api-flow/{route_id}` | Traces downstream data flow: Route -> Middleware -> Service -> DB |
+| `POST` | `/api/analyses/{id}/compare` | Compares base analysis against target revision with graph diff |
 | `GET` | `/api/analyses/{id}/files` | Hierarchical file inventory tree with symbol counts |
 | `GET` | `/api/analyses/{id}/nodes/{node_id}` | Concrete node details, incoming/outgoing edges & verified source snippet |
 | `GET` | `/api/analyses/{id}/er-diagram` | Database entities, columns, primary/foreign keys & relations |

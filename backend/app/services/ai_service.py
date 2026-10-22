@@ -126,6 +126,17 @@ class AIService:
         return None, None
 
     @staticmethod
+    def _sanitize_prompt_input(user_input: str) -> str:
+        """Protects against prompt injection and adversarial control tokens in user architecture queries."""
+        if not user_input or not isinstance(user_input, str):
+            return "Explain the architectural role of this component."
+        cleaned = user_input.strip()[:500]
+        # Neutralize markdown fence escapes and adversarial instruction overrides
+        cleaned = re.sub(r"```+", "`", cleaned)
+        cleaned = re.sub(r"(?i)(ignore\s+(all\s+)?previous\s+instructions|system\s+prompt|system\s+override|reveal\s+secret)", "[redacted]", cleaned)
+        return cleaned
+
+    @staticmethod
     async def explain_component(
         node: GraphNode,
         source_snippet: Optional[str],
@@ -134,6 +145,7 @@ class AIService:
         question: str,
         secondary_node: Optional[GraphNode] = None
     ) -> ExplainResponse:
+        sanitized_question = AIService._sanitize_prompt_input(question)
         evidence_items: List[GroundingEvidenceItem] = []
         if source_snippet:
             evidence_items.append(
@@ -176,7 +188,7 @@ class AIService:
 
         # Build evidence-grounded prompt for Gemma
         prompt_parts = [
-            f"User Question: {question}\n",
+            f"User Question: {sanitized_question}\n",
             f"Primary Component: {node.label} (Type: {node.type}, Layer: {node.layer})",
             f"File: {node.file_path}:{node.start_line}-{node.end_line}",
         ]

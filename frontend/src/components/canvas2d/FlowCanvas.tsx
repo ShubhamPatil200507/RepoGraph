@@ -69,12 +69,23 @@ export const FlowCanvas: React.FC = () => {
     selectedTypes,
     selectedFileFilter,
     traceResult,
+    impactResult,
   } = useRepoStore();
 
   const traceNodeIds = useMemo(() => {
     if (!traceResult?.path_nodes) return new Set<string>();
     return new Set(traceResult.path_nodes.map((n) => n.id));
   }, [traceResult]);
+
+  const directImpactIds = useMemo(() => {
+    if (!impactResult?.direct_dependents) return new Set<string>();
+    return new Set(impactResult.direct_dependents.map((n) => n.id));
+  }, [impactResult]);
+
+  const transitiveImpactIds = useMemo(() => {
+    if (!impactResult?.transitive_dependents) return new Set<string>();
+    return new Set(impactResult.transitive_dependents.map((n) => n.id));
+  }, [impactResult]);
 
   // Compute 2D nodes
   const initialNodes: Node[] = useMemo(() => {
@@ -106,9 +117,23 @@ export const FlowCanvas: React.FC = () => {
           y: node.position_2d?.y ?? 0,
         },
         data: { node },
-        selected: node.id === selectedNodeId || traceNodeIds.has(node.id),
+        selected:
+          node.id === selectedNodeId ||
+          traceNodeIds.has(node.id) ||
+          directImpactIds.has(node.id) ||
+          transitiveImpactIds.has(node.id),
       }));
-  }, [graph, selectedNodeId, searchQuery, selectedLayers, selectedTypes, selectedFileFilter, traceNodeIds]);
+  }, [
+    graph,
+    selectedNodeId,
+    searchQuery,
+    selectedLayers,
+    selectedTypes,
+    selectedFileFilter,
+    traceNodeIds,
+    directImpactIds,
+    transitiveImpactIds,
+  ]);
 
   // Compute 2D edges
   const initialEdges: Edge[] = useMemo(() => {

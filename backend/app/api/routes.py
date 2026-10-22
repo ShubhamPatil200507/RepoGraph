@@ -11,6 +11,8 @@ from app.models.api import (
     AnalyzeRepoRequest,
     AnalyzeRepoResponse,
     AnalysisStatusResponse,
+    CompareRequest,
+    CompareResponse,
     ExplainRequest,
     ExplainResponse,
     HealthResponse,
@@ -161,11 +163,85 @@ async def get_analysis_graph(analysis_id: str):
 @router.get("/analyses/{analysis_id}/graphify")
 async def get_analysis_graphify_export(analysis_id: str):
     """Exports the codebase knowledge graph in Graphify-Labs standard schema (graph.json)."""
-    from app.services.graphify_exporter import GraphifyExporter
+    from app.services.graph_adapter import GraphAdapter
     record = store.get(analysis_id)
     if not record.graph:
         raise HTTPException(status_code=400, detail="Graph not ready yet.")
-    return GraphifyExporter.export_graphify_json(record.graph)
+    return GraphAdapter.to_graphify_schema(record.graph)
+
+
+@router.get("/analyses/{analysis_id}/api-routes")
+async def get_analysis_api_routes(analysis_id: str):
+    """Returns detected API routes in the analyzed repository."""
+    from app.services.api_flow_service import ApiFlowService
+    record = store.get(analysis_id)
+    if not record.graph:
+        raise HTTPException(status_code=400, detail="Graph not ready yet.")
+    return ApiFlowService.get_api_routes(record.graph)
+
+
+@router.get("/analyses/{analysis_id}/api-flow/{route_id:path}")
+async def get_analysis_api_flow(analysis_id: str, route_id: str, max_depth: int = 6):
+    """Traces downstream processing chain for an API route."""
+    from app.services.api_flow_service import ApiFlowService
+    record = store.get(analysis_id)
+    if not record.graph:
+        raise HTTPException(status_code=400, detail="Graph not ready yet.")
+    return ApiFlowService.trace_api_flow(record.graph, route_id, max_depth)
+
+
+@router.post("/analyses/{analysis_id}/compare", response_model=CompareResponse)
+async def compare_analysis(analysis_id: str, req: CompareRequest):
+    """
+    Compares the current analysis graph with a second revision (branch, commit, or target analysis).
+    Returns added, modified, removed components, changed routes/schemas, and visual overlay graph.
+    """
+    from app.services.comparison_service import ComparisonService
+    base_record = store.get(analysis_id)
+    if not base_record.graph:
+        raise HTTPException(status_code=400, detail="Base analysis graph is not ready.")
+
+    target_graph = None
+    target_ref = req.target_ref or "v2"
+
+    if req.target_analysis_id:
+        target_record = store.get(req.target_analysis_id)
+        if not target_record.graph:
+            raise HTTPException(status_code=400, detail="Target analysis graph is not ready.")
+        target_graph = target_record.graph
+    else:
+        # Load or generate target comparison revision
+        target_url = req.target_repository_url or "https://github.com/repograph-demo/ecommerce-platform-v2"
+        extracted_dir, _ = await GitHubFetcher.fetch_and_extract_repository(
+            target_url, req.target_branch or ""
+        )
+        builder = GraphBuilder()
+        for root, dirs, files in os.walk(extracted_dir):
+            rel_dir = os.path.relpath(root, extracted_dir)
+            if not is_path_safe_for_inspection(rel_dir):
+                dirs[:] = []
+                continue
+            for fname in files:
+                full_f = Path(root) / fname
+                rel_f = (Path(rel_dir) / fname if rel_dir != "." else Path(fname)).as_posix()
+                if not is_path_safe_for_inspection(rel_f):
+                    continue
+                try:
+                    content = full_f.read_text(encoding="utf-8", errors="replace")
+                    nodes, edges, er_ents, er_rels = parse_repository_file(full_f, rel_f, content)
+                    ext = full_f.suffix.lower()
+                    lang = "python" if ext == ".py" else ("typescript" if ext in (".ts", ".tsx") else "other")
+                    builder.add_parsed_results(nodes, edges, er_ents, er_rels, rel_f, full_f.stat().st_size, lang)
+                except Exception:
+                    pass
+        target_graph, _, _ = builder.build_normalized_graph()
+
+    return ComparisonService.compare_graphs(
+        base_graph=base_record.graph,
+        target_graph=target_graph,
+        base_ref=req.base_ref or "main",
+        target_ref=target_ref
+    )
 
 
 @router.get("/analyses/{analysis_id}/files", response_model=FileItem)

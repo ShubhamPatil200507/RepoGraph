@@ -12,7 +12,7 @@ import { useRepoStore } from '../../store/useRepoStore';
 import { EREntity, ERRelationship } from '../../types';
 
 export const ERDiagramView: React.FC = () => {
-  const { erDiagram, selectNode } = useRepoStore();
+  const { erDiagram, graph, selectNode } = useRepoStore();
 
   if (!erDiagram || !erDiagram.has_database_evidence || erDiagram.entities.length === 0) {
     return (
@@ -63,7 +63,13 @@ export const ERDiagramView: React.FC = () => {
       {/* Grid of Database Entities */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {erDiagram.entities.map((entity) => (
-          <EntityCard key={entity.id} entity={entity} relationships={erDiagram.relationships} onSelect={selectNode} />
+          <EntityCard
+            key={entity.id}
+            entity={entity}
+            relationships={erDiagram.relationships}
+            graphEdges={graph?.edges || []}
+            onSelect={selectNode}
+          />
         ))}
       </div>
 
@@ -110,10 +116,31 @@ export const ERDiagramView: React.FC = () => {
 const EntityCard: React.FC<{
   entity: EREntity;
   relationships: ERRelationship[];
+  graphEdges: any[];
   onSelect: (id: string) => void;
-}> = ({ entity, relationships, onSelect }) => {
+}> = ({ entity, relationships, graphEdges, onSelect }) => {
   const outgoingRels = relationships.filter((r) => r.source_entity === entity.name);
   const incomingRels = relationships.filter((r) => r.target_entity === entity.name);
+
+  // Cross-layer connected application functions (reads_from / writes_to)
+  const connectedOps = React.useMemo(() => {
+    const targets = new Set([entity.name.toLowerCase(), (entity.table_name || '').toLowerCase()]);
+    const ops: { sourceId: string; type: string; evidence: string }[] = [];
+
+    for (const edge of graphEdges) {
+      const edgeTargetClean = edge.target.split('::').pop()?.toLowerCase() || '';
+      if (targets.has(edgeTargetClean)) {
+        if (edge.type === 'reads_from' || edge.type === 'writes_to') {
+          ops.push({
+            sourceId: edge.source,
+            type: edge.type,
+            evidence: edge.evidence || '',
+          });
+        }
+      }
+    }
+    return ops;
+  }, [entity, graphEdges]);
 
   return (
     <div className="rounded-xl bg-space-900 border border-space-800 overflow-hidden shadow-lg hover:border-slate-700 transition">
@@ -132,7 +159,7 @@ const EntityCard: React.FC<{
       </div>
 
       {/* Columns List */}
-      <div className="p-3 divide-y divide-space-800/60 max-h-[300px] overflow-y-auto">
+      <div className="p-3 divide-y divide-space-800/60 max-h-[220px] overflow-y-auto">
         {entity.attributes.map((attr) => (
           <div key={attr.name} className="py-1.5 flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 font-mono">
@@ -176,6 +203,32 @@ const EntityCard: React.FC<{
               ← {r.source_entity}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Connected Application Operations (reads_from / writes_to) */}
+      {connectedOps.length > 0 && (
+        <div className="p-2.5 bg-space-950/80 border-t border-space-800">
+          <div className="text-[10px] uppercase font-mono text-slate-400 mb-1.5">
+            Connected App Operations ({connectedOps.length})
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {connectedOps.map((op, idx) => (
+              <button
+                key={idx}
+                onClick={() => onSelect(op.sourceId)}
+                className={`text-[10px] font-mono px-2 py-0.5 rounded border transition flex items-center gap-1 ${
+                  op.type === 'writes_to'
+                    ? 'bg-rose-950/40 text-rose-300 border-rose-800/40 hover:bg-rose-900/50'
+                    : 'bg-amber-950/40 text-amber-300 border-amber-800/40 hover:bg-amber-900/50'
+                }`}
+                title={op.evidence || op.sourceId}
+              >
+                <span>{op.type === 'writes_to' ? 'WRITE' : 'READ'}</span>
+                <span>{op.sourceId.split('::').pop()}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

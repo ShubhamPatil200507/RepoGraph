@@ -188,7 +188,19 @@ class PythonASTParser(BaseParser):
 
                 # Parse class body: fields, attributes, methods
                 er_attrs: List[ERAttribute] = []
+                table_name: Optional[str] = None
+
                 for item in stmt.body:
+                    # Check for __tablename__
+                    if isinstance(item, (ast.Assign, ast.AnnAssign)):
+                        t_name = ""
+                        if isinstance(item, ast.Assign) and item.targets and isinstance(item.targets[0], ast.Name):
+                            t_name = item.targets[0].id
+                        elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                            t_name = item.target.id
+                        if t_name == "__tablename__" and hasattr(item, "value") and isinstance(item.value, ast.Constant):
+                            table_name = str(item.value.value)
+
                     if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         method_id = create_node_id(norm_path, f"{stmt.name}.{item.name}")
                         method_node = GraphNode(
@@ -243,12 +255,27 @@ class PythonASTParser(BaseParser):
                                     )
                                 )
 
+                if table_name:
+                    class_node.metadata["table_name"] = table_name
+                    edges.append(
+                        GraphEdge(
+                            id=create_edge_id(class_node_id, f"table::{table_name}", EdgeType.IMPLEMENTS.value),
+                            source=class_node_id,
+                            target=f"table::{table_name}",
+                            type=EdgeType.IMPLEMENTS.value,
+                            evidence=f"ORM model {stmt.name} maps to table '{table_name}'",
+                            source_file=norm_path,
+                            source_line=stmt.lineno,
+                            evidence_status=EvidenceStatus.VERIFIED.value
+                        )
+                    )
+
                 if is_db_model:
                     er_entities.append(
                         EREntity(
                             id=f"entity::{stmt.name}",
                             name=stmt.name,
-                            table_name=stmt.name.lower() + "s",
+                            table_name=table_name or (stmt.name.lower() + "s"),
                             file_path=norm_path,
                             start_line=stmt.lineno,
                             end_line=getattr(stmt, "end_lineno", stmt.lineno),
@@ -391,19 +418,117 @@ class PythonASTParser(BaseParser):
         imported_symbols: Dict[str, str],
         edges: List[GraphEdge]
     ) -> None:
-        """Walks statements in a function to detect calls to local or imported symbols."""
+        """Walks statements in a function to detect calls, database operations, and model references."""
+        # 1. Parameter type hints (e.g., service: OrderService)
+        param_types: Dict[str, str] = {}
+        if hasattr(func_node, "args") and hasattr(func_node.args, "args"):
+            for arg in func_node.args.args:
+                if getattr(arg, "annotation", None):
+                    type_str = ast.unparse(arg.annotation) if hasattr(ast, "unparse") else ""
+                    if type_str:
+                        # Extract simple type name (e.g. OrderService from typing/Depends)
+                        clean_type = type_str.split("[")[-1].rstrip("]").split(".")[-1]
+                        param_types[arg.arg] = clean_type
+
+        # 2. Track local instantiations: var = Model(...)
+        local_var_types: Dict[str, str] = {}
         for subnode in ast.walk(func_node):
+            if isinstance(subnode, ast.Assign) and subnode.targets and isinstance(subnode.targets[0], ast.Name):
+                var_name = subnode.targets[0].id
+                if isinstance(subnode.value, ast.Call):
+                    if isinstance(subnode.value.func, ast.Name):
+                        local_var_types[var_name] = subnode.value.func.id
+                    elif isinstance(subnode.value.func, ast.Attribute):
+                        local_var_types[var_name] = subnode.value.func.attr
+
             if isinstance(subnode, ast.Call):
                 called_name = None
+                caller_attr = None
+                caller_obj = None
+
                 if isinstance(subnode.func, ast.Name):
                     called_name = subnode.func.id
-                elif isinstance(subnode.func, ast.Attribute) and isinstance(subnode.func.value, ast.Name):
-                    called_name = f"{subnode.func.value.id}.{subnode.func.attr}"
+                elif isinstance(subnode.func, ast.Attribute):
+                    caller_attr = subnode.func.attr
+                    if isinstance(subnode.func.value, ast.Name):
+                        caller_obj = subnode.func.value.id
+                        resolved_obj_type = param_types.get(caller_obj, caller_obj)
+                        called_name = f"{resolved_obj_type}.{caller_attr}"
+                    elif isinstance(subnode.func.value, ast.Attribute) and isinstance(subnode.func.value.value, ast.Name):
+                        base_name = subnode.func.value.value.id
+                        caller_obj = f"{base_name}.{subnode.func.value.attr}"
+                        called_name = f"{caller_obj}.{caller_attr}"
 
                 if not called_name or called_name in ("print", "len", "range", "isinstance", "getattr", "setattr"):
                     continue
 
-                # Local symbol call
+                # A. DB write operations: db.add(order), self.db.add(order), db.commit()
+                if caller_attr in ("add", "create", "insert", "delete"):
+                    target_entity = None
+                    if subnode.args:
+                        arg0 = subnode.args[0]
+                        if isinstance(arg0, ast.Name):
+                            target_entity = local_var_types.get(arg0.id, arg0.id.capitalize())
+                        elif isinstance(arg0, ast.Call) and isinstance(arg0.func, ast.Name):
+                            target_entity = arg0.func.id
+
+                    if target_entity:
+                        edge_id = create_edge_id(caller_id, target_entity, EdgeType.WRITES_TO.value)
+                        edges.append(
+                            GraphEdge(
+                                id=edge_id,
+                                source=caller_id,
+                                target=target_entity,
+                                type=EdgeType.WRITES_TO.value,
+                                evidence=f"writes to database model '{target_entity}' via {caller_attr}() at line {subnode.lineno}",
+                                source_file=norm_path,
+                                source_line=subnode.lineno,
+                                evidence_status=EvidenceStatus.VERIFIED.value
+                            )
+                        )
+
+                # B. DB read operations: db.query(Product), Model.filter(), Model.get()
+                elif caller_attr in ("query", "filter", "get", "find", "all", "first"):
+                    target_entity = None
+                    if subnode.args and isinstance(subnode.args[0], ast.Name):
+                        target_entity = subnode.args[0].id
+                    elif caller_obj and caller_obj[0].isupper():
+                        target_entity = caller_obj
+
+                    if target_entity:
+                        edge_id = create_edge_id(caller_id, target_entity, EdgeType.READS_FROM.value)
+                        edges.append(
+                            GraphEdge(
+                                id=edge_id,
+                                source=caller_id,
+                                target=target_entity,
+                                type=EdgeType.READS_FROM.value,
+                                evidence=f"reads from database model '{target_entity}' via {caller_attr}() at line {subnode.lineno}",
+                                source_file=norm_path,
+                                source_line=subnode.lineno,
+                                evidence_status=EvidenceStatus.VERIFIED.value
+                            )
+                        )
+
+                # C. Model instantiation: Order(...) -> references model
+                if isinstance(subnode.func, ast.Name) and subnode.func.id[0].isupper() and (
+                    subnode.func.id in imported_symbols or subnode.func.id in defined_symbols
+                ):
+                    edge_id = create_edge_id(caller_id, subnode.func.id, EdgeType.REFERENCES.value)
+                    edges.append(
+                        GraphEdge(
+                            id=edge_id,
+                            source=caller_id,
+                            target=subnode.func.id,
+                            type=EdgeType.REFERENCES.value,
+                            evidence=f"references model {subnode.func.id}() at line {subnode.lineno}",
+                            source_file=norm_path,
+                            source_line=subnode.lineno,
+                            evidence_status=EvidenceStatus.VERIFIED.value
+                        )
+                    )
+
+                # D. Local symbol call
                 if called_name in defined_symbols:
                     target_id = create_node_id(norm_path, called_name)
                     edge_id = create_edge_id(caller_id, target_id, EdgeType.CALLS.value)
@@ -419,9 +544,9 @@ class PythonASTParser(BaseParser):
                             evidence_status=EvidenceStatus.VERIFIED.value
                         )
                     )
-                # Imported symbol call
-                elif called_name in imported_symbols:
-                    target_repr = imported_symbols[called_name]
+                # E. Imported symbol call
+                elif called_name in imported_symbols or (caller_obj and caller_obj in imported_symbols):
+                    target_repr = imported_symbols.get(called_name) or f"{imported_symbols.get(caller_obj)}.{caller_attr}"
                     edge_id = create_edge_id(caller_id, target_repr, EdgeType.CALLS.value)
                     edges.append(
                         GraphEdge(
@@ -433,5 +558,20 @@ class PythonASTParser(BaseParser):
                             source_file=norm_path,
                             source_line=subnode.lineno,
                             evidence_status=EvidenceStatus.VERIFIED.value
+                        )
+                    )
+                else:
+                    # Cross-module method call (e.g. OrderService.create_order)
+                    edge_id = create_edge_id(caller_id, called_name, EdgeType.CALLS.value)
+                    edges.append(
+                        GraphEdge(
+                            id=edge_id,
+                            source=caller_id,
+                            target=called_name,
+                            type=EdgeType.CALLS.value,
+                            evidence=f"call {called_name}() at line {subnode.lineno}",
+                            source_file=norm_path,
+                            source_line=subnode.lineno,
+                            evidence_status=EvidenceStatus.INFERRED.value
                         )
                     )

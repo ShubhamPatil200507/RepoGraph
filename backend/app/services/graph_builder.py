@@ -109,11 +109,14 @@ class GraphBuilder:
         """Attempts to link unresolved import/call targets to concrete nodes in the repo."""
         label_to_id: Dict[str, str] = {}
         path_to_file_id: Dict[str, str] = {}
+        table_to_id: Dict[str, str] = {}
 
         for node_id, node in self.nodes.items():
             label_to_id[node.label] = node_id
             if node.type == "file":
                 path_to_file_id[node.file_path] = node_id
+            if node.layer == "database" or node.type in ("model", "table"):
+                table_to_id[node.label.lower()] = node_id
 
         resolved_edges: List[GraphEdge] = []
         for edge in self.edges:
@@ -122,11 +125,27 @@ class GraphBuilder:
                 resolved_edges.append(edge)
                 continue
 
+            # Check if target is a table reference (table::orders)
+            if edge.target.startswith("table::"):
+                tbl_name = edge.target.replace("table::", "").lower()
+                if tbl_name in table_to_id:
+                    edge.target = table_to_id[tbl_name]
+                    edge.confidence = 0.95
+                    edge.evidence_status = EvidenceStatus.VERIFIED.value
+                    resolved_edges.append(edge)
+                    continue
+
             # Check if target matches another node label (e.g. class or function name)
             target_cleaned = edge.target.replace("external::", "").replace("import::", "")
             simple_name = target_cleaned.split(".")[-1].split("::")[-1]
 
-            if simple_name in label_to_id:
+            if target_cleaned in label_to_id:
+                concrete_id = label_to_id[target_cleaned]
+                edge.target = concrete_id
+                edge.confidence = 0.90
+                edge.evidence_status = EvidenceStatus.VERIFIED.value
+                resolved_edges.append(edge)
+            elif simple_name in label_to_id:
                 concrete_id = label_to_id[simple_name]
                 edge.target = concrete_id
                 edge.confidence = 0.85
